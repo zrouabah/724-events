@@ -1,11 +1,6 @@
+// DataContext.js
 import PropTypes from "prop-types";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const DataContext = createContext({});
 
@@ -19,26 +14,31 @@ export const api = {
 export const DataProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [last, setLast] = useState(null);
+
   const getData = useCallback(async () => {
     try {
-      setData(await api.loadData());
+      const jsonData = await api.loadData();
+      setData(jsonData);
     } catch (err) {
       setError(err);
     }
   }, []);
+
   useEffect(() => {
-    if (data) return;
+    if (data && data.events) {
+      setLast(data.events.sort((evtA, evtB) =>
+        new Date(evtA.date) - new Date(evtB.date)
+      )[0]);
+      return;
+    }
     getData();
-  });
-  
+  }, [data, getData]);
+
+  const memoizedValue = useMemo(() => ({ data, error, last }), [data, error, last]);
+
   return (
-    <DataContext.Provider
-      // eslint-disable-next-line react/jsx-no-constructed-context-values
-      value={{
-        data,
-        error,
-      }}
-    >
+    <DataContext.Provider value={memoizedValue}>
       {children}
     </DataContext.Provider>
   );
@@ -46,7 +46,7 @@ export const DataProvider = ({ children }) => {
 
 DataProvider.propTypes = {
   children: PropTypes.node.isRequired,
-}
+};
 
 export const useData = () => useContext(DataContext);
 
